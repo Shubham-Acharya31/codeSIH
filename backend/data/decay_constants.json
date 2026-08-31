@@ -1,0 +1,22 @@
+{
+  "medical": {
+    "product_subtype": "medical",
+    "q10": 2.5,
+    "temperature_min": 2.0,
+    "temperature_max": 8.0,
+    "optimal_temp": 5.0,
+    "base_shelf_life_hr": 48.0,
+    "hard_breach_override": true,
+    "description": "Temperature-sensitive medical supplies (e.g., vaccines, biologics). Any thermal excursion above max threshold triggers hard loss."
+  },
+  "organic": {
+    "product_subtype": "organic",
+    "q10": 2.2,
+    "temperature_min": 4.0,
+    "temperature_max": 12.0,
+    "optimal_temp": 8.0,
+    "base_shelf_life_hr": 72.0,
+    "hard_breach_override": false,
+    "description": "Perishable agri-produce (e.g., grapes, fresh berries). Continuous Q10 shelf-life consumption model."
+  }
+}

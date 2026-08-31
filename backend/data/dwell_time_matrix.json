@@ -1,0 +1,13 @@
+{
+  "transfer_buffers": {
+    "generic_cargo_hr": 2.0,
+    "cold_chain_cargo_hr": 3.0
+  },
+  "hub_dwell_overheads": {
+    "Indranagar Junction": 1.5,
+    "Himkot": 1.0,
+    "Suryapatan": 1.0,
+    "Chandanpalli": 1.0,
+    "Meghdoot": 1.0
+  }
+}

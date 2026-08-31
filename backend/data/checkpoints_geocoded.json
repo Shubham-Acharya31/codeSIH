@@ -1,0 +1,162 @@
+{
+  "Indranagar Junction": {
+    "name": "Indranagar Junction",
+    "lat": 21.15,
+    "lon": 79.08,
+    "type": "hub",
+    "region": "Central",
+    "nearest_hub": "Indranagar Junction"
+  },
+  "Himkot": {
+    "name": "Himkot",
+    "lat": 29.40,
+    "lon": 76.60,
+    "type": "hub",
+    "region": "North",
+    "nearest_hub": "Himkot"
+  },
+  "Suryapatan": {
+    "name": "Suryapatan",
+    "lat": 22.30,
+    "lon": 71.20,
+    "type": "hub",
+    "region": "West",
+    "nearest_hub": "Suryapatan"
+  },
+  "Chandanpalli": {
+    "name": "Chandanpalli",
+    "lat": 13.50,
+    "lon": 78.10,
+    "type": "hub",
+    "region": "South",
+    "nearest_hub": "Chandanpalli"
+  },
+  "Meghdoot": {
+    "name": "Meghdoot",
+    "lat": 23.60,
+    "lon": 87.40,
+    "type": "hub",
+    "region": "East",
+    "nearest_hub": "Meghdoot"
+  },
+  "Kanakpur": {
+    "name": "Kanakpur",
+    "lat": 29.05,
+    "lon": 75.90,
+    "type": "satellite",
+    "region": "North",
+    "nearest_hub": "Himkot"
+  },
+  "Rudra Nagar": {
+    "name": "Rudra Nagar",
+    "lat": 30.10,
+    "lon": 77.25,
+    "type": "satellite",
+    "region": "North",
+    "nearest_hub": "Himkot"
+  },
+  "Panchvati Khurd": {
+    "name": "Panchvati Khurd",
+    "lat": 28.70,
+    "lon": 76.95,
+    "type": "satellite",
+    "region": "North",
+    "nearest_hub": "Himkot"
+  },
+  "Amrai": {
+    "name": "Amrai",
+    "lat": 21.90,
+    "lon": 72.10,
+    "type": "satellite",
+    "region": "West",
+    "nearest_hub": "Suryapatan"
+  },
+  "Bhairavgarh": {
+    "name": "Bhairavgarh",
+    "lat": 22.80,
+    "lon": 70.50,
+    "type": "satellite",
+    "region": "West",
+    "nearest_hub": "Suryapatan"
+  },
+  "Nilgiri Basti": {
+    "name": "Nilgiri Basti",
+    "lat": 21.40,
+    "lon": 73.00,
+    "type": "satellite",
+    "region": "West",
+    "nearest_hub": "Suryapatan"
+  },
+  "Vasantnagar": {
+    "name": "Vasantnagar",
+    "lat": 23.10,
+    "lon": 71.80,
+    "type": "satellite",
+    "region": "West",
+    "nearest_hub": "Suryapatan"
+  },
+  "Devgiri": {
+    "name": "Devgiri",
+    "lat": 12.90,
+    "lon": 77.50,
+    "type": "satellite",
+    "region": "South",
+    "nearest_hub": "Chandanpalli"
+  },
+  "Ratnapur": {
+    "name": "Ratnapur",
+    "lat": 14.20,
+    "lon": 78.60,
+    "type": "satellite",
+    "region": "South",
+    "nearest_hub": "Chandanpalli"
+  },
+  "Harishpur": {
+    "name": "Harishpur",
+    "lat": 13.00,
+    "lon": 79.40,
+    "type": "satellite",
+    "region": "South",
+    "nearest_hub": "Chandanpalli"
+  },
+  "Ambapuri": {
+    "name": "Ambapuri",
+    "lat": 12.50,
+    "lon": 77.90,
+    "type": "satellite",
+    "region": "South",
+    "nearest_hub": "Chandanpalli"
+  },
+  "Shantivan": {
+    "name": "Shantivan",
+    "lat": 24.10,
+    "lon": 88.20,
+    "type": "satellite",
+    "region": "East",
+    "nearest_hub": "Meghdoot"
+  },
+  "Ganganpalli": {
+    "name": "Ganganpalli",
+    "lat": 23.20,
+    "lon": 86.80,
+    "type": "satellite",
+    "region": "East",
+    "nearest_hub": "Meghdoot"
+  },
+  "Kishangunj": {
+    "name": "Kishangunj",
+    "lat": 24.50,
+    "lon": 87.90,
+    "type": "satellite",
+    "region": "East",
+    "nearest_hub": "Meghdoot"
+  },
+  "Sagarpettah": {
+    "name": "Sagarpettah",
+    "lat": 22.90,
+    "lon": 88.10,
+    "type": "satellite",
+    "region": "East",
+    "nearest_hub": "Meghdoot"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "hubs": [
+    "Indranagar Junction",
+    "Himkot",
+    "Suryapatan",
+    "Chandanpalli",
+    "Meghdoot"
+  ],
+  "trunk_edges": [
+    ["Indranagar Junction", "Himkot"],
+    ["Indranagar Junction", "Suryapatan"],
+    ["Indranagar Junction", "Chandanpalli"],
+    ["Indranagar Junction", "Meghdoot"],
+    ["Suryapatan", "Chandanpalli"]
+  ],
+  "adjacency": {
+    "Indranagar Junction": ["Himkot", "Suryapatan", "Chandanpalli", "Meghdoot"],
+    "Himkot": ["Indranagar Junction"],
+    "Suryapatan": ["Indranagar Junction", "Chandanpalli"],
+    "Chandanpalli": ["Indranagar Junction", "Suryapatan"],
+    "Meghdoot": ["Indranagar Junction"]
+  }
+}

@@ -1,0 +1,110 @@
+[
+  {
+    "shipment_id": "SHP-001",
+    "origin": "Amrai",
+    "destination": "Suryapatan",
+    "weight_kg": 4500.0,
+    "volume_m3": 14.0,
+    "deadline": "2026-09-02T18:00:00Z",
+    "cargo_value": 450000.0,
+    "product_category": "Fresh Agri - Grapes",
+    "shipment_class": "A",
+    "class_a": {
+      "product_subtype": "organic",
+      "temperature_min": 4.0,
+      "temperature_max": 12.0,
+      "q10": 2.2,
+      "base_shelf_life_hr": 72.0,
+      "hard_breach_override": false
+    },
+    "class_b": null
+  },
+  {
+    "shipment_id": "SHP-002",
+    "origin": "Kanakpur",
+    "destination": "Ambapuri",
+    "weight_kg": 12000.0,
+    "volume_m3": 32.0,
+    "deadline": "2026-09-04T12:00:00Z",
+    "cargo_value": 600000.0,
+    "product_category": "Bulk Agri - Onions",
+    "shipment_class": "B",
+    "class_a": null,
+    "class_b": {
+      "delay_penalty_rate": 0.06,
+      "sla_strict": true
+    }
+  },
+  {
+    "shipment_id": "SHP-003",
+    "origin": "Rudra Nagar",
+    "destination": "Meghdoot",
+    "weight_kg": 1800.0,
+    "volume_m3": 6.5,
+    "deadline": "2026-09-03T10:00:00Z",
+    "cargo_value": 2500000.0,
+    "product_category": "Pharmaceuticals - Vaccines",
+    "shipment_class": "A",
+    "class_a": {
+      "product_subtype": "medical",
+      "temperature_min": 2.0,
+      "temperature_max": 8.0,
+      "q10": 2.5,
+      "base_shelf_life_hr": 48.0,
+      "hard_breach_override": true
+    },
+    "class_b": null
+  },
+  {
+    "shipment_id": "SHP-004",
+    "origin": "Bhairavgarh",
+    "destination": "Suryapatan",
+    "weight_kg": 6200.0,
+    "volume_m3": 18.0,
+    "deadline": "2026-09-02T20:00:00Z",
+    "cargo_value": 850000.0,
+    "product_category": "Automotive - Precision Auto Parts",
+    "shipment_class": "B",
+    "class_a": null,
+    "class_b": {
+      "delay_penalty_rate": 0.05,
+      "sla_strict": false
+    }
+  },
+  {
+    "shipment_id": "SHP-005",
+    "origin": "Shantivan",
+    "destination": "Himkot",
+    "weight_kg": 9500.0,
+    "volume_m3": 28.0,
+    "deadline": "2026-09-04T16:00:00Z",
+    "cargo_value": 1100000.0,
+    "product_category": "Apparel - Industrial Textiles",
+    "shipment_class": "B",
+    "class_a": null,
+    "class_b": {
+      "delay_penalty_rate": 0.04,
+      "sla_strict": true
+    }
+  },
+  {
+    "shipment_id": "SHP-006",
+    "origin": "Devgiri",
+    "destination": "Suryapatan",
+    "weight_kg": 2400.0,
+    "volume_m3": 8.0,
+    "deadline": "2026-09-03T14:00:00Z",
+    "cargo_value": 1800000.0,
+    "product_category": "Healthcare - Pharma Supplies",
+    "shipment_class": "A",
+    "class_a": {
+      "product_subtype": "medical",
+      "temperature_min": 2.0,
+      "temperature_max": 8.0,
+      "q10": 2.5,
+      "base_shelf_life_hr": 48.0,
+      "hard_breach_override": true
+    },
+    "class_b": null
+  }
+]
