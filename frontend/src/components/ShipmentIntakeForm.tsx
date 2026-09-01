@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { PlusCircle, X, Check } from 'lucide-react';
+import { PlusCircle, X, Check, AlertCircle, MapPin } from 'lucide-react';
 import { Shipment, CheckpointsData } from '../types';
+import { SYSTEM_CONFIG } from '../config/constants';
+import { ShipmentIntakeSchema } from '../validation/shipmentSchema';
 
 interface ShipmentIntakeFormProps {
   checkpointsData: CheckpointsData;
@@ -14,52 +16,108 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
   onClose
 }) => {
   const cities = Object.keys(checkpointsData.checkpoints || {});
-  
+  const defaultOrigin = cities[0] || SYSTEM_CONFIG.networkDefaults.defaultOrigin;
+  const defaultDest = cities[1] || SYSTEM_CONFIG.networkDefaults.defaultDestination;
+
   const [productCategory, setProductCategory] = useState('');
   const [shipmentClass, setShipmentClass] = useState<'A' | 'B'>('A');
-  const [origin, setOrigin] = useState(cities[0] || 'Amrai');
-  const [destination, setDestination] = useState(cities[1] || 'Suryapatan');
-  const [weightKg, setWeightKg] = useState(3000);
-  const [volumeM3, setVolumeM3] = useState(10);
-  const [cargoValue, setCargoValue] = useState(500000);
+  const [origin, setOrigin] = useState(defaultOrigin);
+  const [destination, setDestination] = useState(defaultDest);
+  const [weightKg, setWeightKg] = useState<number>(3000);
+  const [volumeM3, setVolumeM3] = useState<number>(10);
+  const [cargoValue, setCargoValue] = useState<number>(500000);
   
   // Class A specific
   const [subtype, setSubtype] = useState<'medical' | 'organic'>('organic');
-  const [tempMin, setTempMin] = useState(4.0);
-  const [tempMax, setTempMax] = useState(12.0);
-  const [q10, setQ10] = useState(2.2);
-  const [shelfLifeHr, setShelfLifeHr] = useState(72.0);
+  const [tempMin, setTempMin] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.tempMin);
+  const [tempMax, setTempMax] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.tempMax);
+  const [q10, setQ10] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.q10);
+  const [shelfLifeHr, setShelfLifeHr] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.baseShelfLifeHr);
 
   // Class B specific
-  const [penaltyRate, setPenaltyRate] = useState(0.05);
-  const [slaStrict, setSlaStrict] = useState(true);
+  const [penaltyRate, setPenaltyRate] = useState<number>(SYSTEM_CONFIG.classBDefaults.defaultPenaltyRate);
+  const [slaStrict, setSlaStrict] = useState<boolean>(SYSTEM_CONFIG.classBDefaults.defaultSlaStrict);
+
+  // Validation errors state
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
+
+  const handleSubtypeChange = (newSubtype: 'medical' | 'organic') => {
+    setSubtype(newSubtype);
+    const cfg = SYSTEM_CONFIG.productSubtypes[newSubtype];
+    setTempMin(cfg.tempMin);
+    setTempMax(cfg.tempMax);
+    setQ10(cfg.q10);
+    setShelfLifeHr(cfg.baseShelfLifeHr);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = `SHP-CUST-${Math.floor(100 + Math.random() * 900)}`;
-    
-    const newShipment: Shipment = {
-      shipment_id: newId,
+    setErrors({});
+    setGeneralError(null);
+
+    // Build raw form payload for Zod validation
+    const candidateData = {
+      product_category: productCategory,
       origin,
       destination,
       weight_kg: Number(weightKg),
       volume_m3: Number(volumeM3),
-      deadline: new Date(Date.now() + 86400000 * 3).toISOString(),
       cargo_value: Number(cargoValue),
-      product_category: productCategory || (shipmentClass === 'A' ? 'Perishable Goods' : 'General Merchandise'),
       shipment_class: shipmentClass,
       class_a: shipmentClass === 'A' ? {
         product_subtype: subtype,
         temperature_min: Number(tempMin),
         temperature_max: Number(tempMax),
-        q10: subtype === 'medical' ? 2.5 : Number(q10),
+        q10: subtype === 'medical' ? SYSTEM_CONFIG.productSubtypes.medical.q10 : Number(q10),
         base_shelf_life_hr: Number(shelfLifeHr),
-        hard_breach_override: subtype === 'medical'
+        hard_breach_override: subtype === 'medical',
       } : null,
       class_b: shipmentClass === 'B' ? {
         delay_penalty_rate: Number(penaltyRate),
-        sla_strict: slaStrict
-      } : null
+        sla_strict: slaStrict,
+      } : null,
+    };
+
+    const validationResult = ShipmentIntakeSchema.safeParse(candidateData);
+
+    if (!validationResult.success) {
+      const fieldErrors: Record<string, string> = {};
+      validationResult.error.issues.forEach((issue) => {
+        const pathKey = issue.path.join('.');
+        fieldErrors[pathKey] = issue.message;
+      });
+      setErrors(fieldErrors);
+      setGeneralError('Please correct the highlighted validation errors before proceeding.');
+      return;
+    }
+
+    const valid = validationResult.data;
+    const uniqueSuffix = Date.now().toString().slice(-4) + Math.floor(Math.random() * 90 + 10);
+    const newId = `SHP-CUST-${uniqueSuffix}`;
+
+    const newShipment: Shipment = {
+      shipment_id: newId,
+      origin: valid.origin,
+      destination: valid.destination,
+      weight_kg: valid.weight_kg,
+      volume_m3: valid.volume_m3,
+      deadline: new Date(Date.now() + 86400000 * 3).toISOString(),
+      cargo_value: valid.cargo_value,
+      product_category: valid.product_category,
+      shipment_class: valid.shipment_class,
+      class_a: valid.class_a ? {
+        product_subtype: valid.class_a.product_subtype,
+        temperature_min: valid.class_a.temperature_min,
+        temperature_max: valid.class_a.temperature_max,
+        q10: valid.class_a.q10,
+        base_shelf_life_hr: valid.class_a.base_shelf_life_hr,
+        hard_breach_override: valid.class_a.hard_breach_override,
+      } : null,
+      class_b: valid.class_b ? {
+        delay_penalty_rate: valid.class_b.delay_penalty_rate,
+        sla_strict: valid.class_b.sla_strict,
+      } : null,
     };
 
     onAddShipment(newShipment);
@@ -79,77 +137,144 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
           </button>
         </div>
 
+        {generalError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <span>{generalError}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Product Description</label>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Product Description <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               required
-              placeholder="e.g. Fresh Mangoes, Medical Test Kits, Precision Valves"
+              placeholder="e.g. Fresh Alphonso Mangoes, Insulin Test Kits, Automotive Valves"
               value={productCategory}
-              onChange={(e) => setProductCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+              onChange={(e) => {
+                setProductCategory(e.target.value);
+                if (errors['product_category']) {
+                  setErrors((prev) => ({ ...prev, product_category: '' }));
+                }
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:outline-hidden ${
+                errors['product_category'] ? 'border-red-400 bg-red-50/20 focus:ring-red-300' : 'border-slate-200 focus:ring-blue-500'
+              }`}
             />
+            {errors['product_category'] && (
+              <p className="text-[11px] text-red-600 font-medium mt-1">{errors['product_category']}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Origin City</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Origin City <span className="text-red-500">*</span>
+              </label>
               <select
                 value={origin}
-                onChange={(e) => setOrigin(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                onChange={(e) => {
+                  setOrigin(e.target.value);
+                  if (errors['origin'] || errors['destination']) {
+                    setErrors((prev) => ({ ...prev, origin: '', destination: '' }));
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:outline-hidden ${
+                  errors['origin'] ? 'border-red-400' : 'border-slate-200 focus:ring-blue-500'
+                }`}
               >
                 {cities.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+              {errors['origin'] && (
+                <p className="text-[11px] text-red-600 font-medium mt-1">{errors['origin']}</p>
+              )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Destination City</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Destination City <span className="text-red-500">*</span>
+              </label>
               <select
                 value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                onChange={(e) => {
+                  setDestination(e.target.value);
+                  if (errors['destination']) {
+                    setErrors((prev) => ({ ...prev, destination: '' }));
+                  }
+                }}
+                className={`w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:outline-hidden ${
+                  errors['destination'] ? 'border-red-400' : 'border-slate-200 focus:ring-blue-500'
+                }`}
               >
                 {cities.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+              {errors['destination'] && (
+                <p className="text-[11px] text-red-600 font-medium mt-1">{errors['destination']}</p>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Weight (kg)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Weight (kg) <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
-                min="10"
+                min={SYSTEM_CONFIG.validationLimits.minWeightKg}
+                max={SYSTEM_CONFIG.validationLimits.maxWeightKg}
                 value={weightKg}
                 onChange={(e) => setWeightKg(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                  errors['weight_kg'] ? 'border-red-400 bg-red-50/20' : 'border-slate-200'
+                }`}
               />
+              {errors['weight_kg'] && (
+                <p className="text-[11px] text-red-600 font-medium mt-1">{errors['weight_kg']}</p>
+              )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Volume (m³)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Volume (m³) <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
-                min="0.5"
                 step="0.5"
+                min={SYSTEM_CONFIG.validationLimits.minVolumeM3}
+                max={SYSTEM_CONFIG.validationLimits.maxVolumeM3}
                 value={volumeM3}
                 onChange={(e) => setVolumeM3(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                  errors['volume_m3'] ? 'border-red-400 bg-red-50/20' : 'border-slate-200'
+                }`}
               />
+              {errors['volume_m3'] && (
+                <p className="text-[11px] text-red-600 font-medium mt-1">{errors['volume_m3']}</p>
+              )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Cargo Value (₹)</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Cargo Value (₹) <span className="text-red-500">*</span>
+              </label>
               <input
                 type="number"
-                min="1000"
+                min={SYSTEM_CONFIG.validationLimits.minCargoValueInr}
+                max={SYSTEM_CONFIG.validationLimits.maxCargoValueInr}
                 value={cargoValue}
                 onChange={(e) => setCargoValue(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                  errors['cargo_value'] ? 'border-red-400 bg-red-50/20' : 'border-slate-200'
+                }`}
               />
+              {errors['cargo_value'] && (
+                <p className="text-[11px] text-red-600 font-medium mt-1">{errors['cargo_value']}</p>
+              )}
             </div>
           </div>
 
@@ -157,84 +282,88 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-2">Classification</label>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShipmentClass('A')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-3 transition ${
-                  shipmentClass === 'A'
-                    ? 'border-blue-500 bg-blue-50/70 text-blue-900 ring-2 ring-blue-400/20'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
-              >
-                <div className={`w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center ${
-                  shipmentClass === 'A' ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-400'
-                }`}>
-                  {shipmentClass === 'A' && <Check className="w-3 h-3" />}
-                </div>
-                <div>
-                  <span className="font-bold text-sm block">Class A (Perishable)</span>
-                  <span className="text-xs text-slate-500">Q10 physics decay & temperature envelope</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShipmentClass('B')}
-                className={`p-3 rounded-xl border text-left flex items-start gap-3 transition ${
-                  shipmentClass === 'B'
-                    ? 'border-amber-500 bg-amber-50/70 text-amber-900 ring-2 ring-amber-400/20'
-                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                }`}
-              >
-                <div className={`w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center ${
-                  shipmentClass === 'B' ? 'border-amber-600 bg-amber-600 text-white' : 'border-slate-400'
-                }`}>
-                  {shipmentClass === 'B' && <Check className="w-3 h-3" />}
-                </div>
-                <div>
-                  <span className="font-bold text-sm block">Class B (Non-Perishable)</span>
-                  <span className="text-xs text-slate-500">Delay-probability & contractual penalty rate</span>
-                </div>
-              </button>
+              {SYSTEM_CONFIG.cargoClasses.map((cc) => {
+                const isSelected = shipmentClass === cc.id;
+                const isClassA = cc.id === 'A';
+                return (
+                  <button
+                    key={cc.id}
+                    type="button"
+                    onClick={() => setShipmentClass(cc.id)}
+                    className={`p-3 rounded-xl border text-left flex items-start gap-3 transition ${
+                      isSelected
+                        ? isClassA
+                          ? 'border-blue-500 bg-blue-50/70 text-blue-900 ring-2 ring-blue-400/20'
+                          : 'border-amber-500 bg-amber-50/70 text-amber-900 ring-2 ring-amber-400/20'
+                        : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className={`w-4 h-4 mt-0.5 rounded-full border flex items-center justify-center ${
+                      isSelected
+                        ? isClassA ? 'border-blue-600 bg-blue-600 text-white' : 'border-amber-600 bg-amber-600 text-white'
+                        : 'border-slate-400'
+                    }`}>
+                      {isSelected && <Check className="w-3 h-3" />}
+                    </div>
+                    <div>
+                      <span className="font-bold text-sm block">{cc.label}</span>
+                      <span className="text-xs text-slate-500">{cc.description}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Class Specific Attributes */}
           {shipmentClass === 'A' ? (
             <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 space-y-3">
-              <span className="text-xs font-bold text-blue-900 block">Class A Parameters</span>
+              <span className="text-xs font-bold text-blue-900 block">Class A Temperature &amp; Physics Parameters</span>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-slate-700 mb-1">Subtype</label>
                   <select
                     value={subtype}
-                    onChange={(e) => {
-                      const st = e.target.value as 'medical' | 'organic';
-                      setSubtype(st);
-                      if (st === 'medical') {
-                        setTempMin(2.0);
-                        setTempMax(8.0);
-                        setQ10(2.5);
-                        setShelfLifeHr(48.0);
-                      } else {
-                        setTempMin(4.0);
-                        setTempMax(12.0);
-                        setQ10(2.2);
-                        setShelfLifeHr(72.0);
-                      }
-                    }}
+                    onChange={(e) => handleSubtypeChange(e.target.value as 'medical' | 'organic')}
                     className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs bg-white"
                   >
-                    <option value="organic">Organic Produce (Q10 = 2.2)</option>
-                    <option value="medical">Medical / Vaccines (Q10 = 2.5, Hard Breach)</option>
+                    <option value="organic">Organic Produce (Q10 = 2.2, 4°C - 12°C)</option>
+                    <option value="medical">Medical / Vaccines (Q10 = 2.5, 2°C - 8°C, Hard Breach)</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-[11px] font-medium text-slate-700 mb-1">Shelf Life (Hours)</label>
                   <input
                     type="number"
+                    min="1"
                     value={shelfLifeHr}
                     onChange={(e) => setShelfLifeHr(Number(e.target.value))}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs"
+                  />
+                  {errors['class_a.base_shelf_life_hr'] && (
+                    <p className="text-[10px] text-red-600 mt-0.5">{errors['class_a.base_shelf_life_hr']}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-700 mb-1">Min Temp (°C)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={tempMin}
+                    onChange={(e) => setTempMin(Number(e.target.value))}
+                    className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs"
+                  />
+                  {errors['class_a.temperature_min'] && (
+                    <p className="text-[10px] text-red-600 mt-0.5">{errors['class_a.temperature_min']}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-700 mb-1">Max Temp (°C)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    value={tempMax}
+                    onChange={(e) => setTempMax(Number(e.target.value))}
                     className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs"
                   />
                 </div>
@@ -242,11 +371,11 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
             </div>
           ) : (
             <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-100 space-y-3">
-              <span className="text-xs font-bold text-amber-900 block">Class B Parameters</span>
+              <span className="text-xs font-bold text-amber-900 block">Class B SLA &amp; Penalty Parameters</span>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-medium text-slate-700 mb-1">
-                    Delay Penalty Rate (Fraction 0.01 - 0.15)
+                    Delay Penalty Rate (Fraction 0.00 - 1.00)
                   </label>
                   <input
                     type="number"
@@ -257,6 +386,9 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
                     onChange={(e) => setPenaltyRate(Number(e.target.value))}
                     className="w-full px-2 py-1.5 border border-slate-200 rounded text-xs"
                   />
+                  {errors['class_b.delay_penalty_rate'] && (
+                    <p className="text-[10px] text-red-600 mt-0.5">{errors['class_b.delay_penalty_rate']}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 pt-5">
                   <input
@@ -266,8 +398,8 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
                     onChange={(e) => setSlaStrict(e.target.checked)}
                     className="rounded text-amber-600 focus:ring-amber-500"
                   />
-                  <label htmlFor="slaStrict" className="text-xs font-medium text-slate-800">
-                    Strict SLA Contract
+                  <label htmlFor="slaStrict" className="text-xs font-medium text-slate-800 cursor-pointer">
+                    Strict SLA Contract Enforcement
                   </label>
                 </div>
               </div>
@@ -278,15 +410,15 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition"
+              className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-xs"
+              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-xs cursor-pointer"
             >
-              Save & Add Consignment
+              Validate &amp; Add Consignment
             </button>
           </div>
         </form>

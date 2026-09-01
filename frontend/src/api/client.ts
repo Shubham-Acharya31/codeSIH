@@ -1,21 +1,39 @@
 /// <reference types="vite/client" />
 import axios from 'axios';
-import { Shipment, PlanResponse, CheckpointsData } from '../types';
+import {
+  Shipment,
+  PlanResponse,
+  CheckpointsData,
+  ConfigResponse,
+  CheckpointInput,
+  OptimizationScenarioInput
+} from '../types';
 import { MOCK_SHIPMENTS, MOCK_PLANS, MOCK_CHECKPOINTS } from '../mocks/fixtures';
+import { SYSTEM_CONFIG } from '../config/constants';
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+export async function fetchSystemConfig(): Promise<ConfigResponse | null> {
+  try {
+    const res = await apiClient.get<ConfigResponse>(SYSTEM_CONFIG.apiEndpoints.config);
+    return res.data;
+  } catch (err) {
+    console.warn('Backend config unavailable, falling back to local SYSTEM_CONFIG:', err);
+    return null;
+  }
+}
+
 export async function fetchCheckpoints(): Promise<CheckpointsData> {
   try {
-    const res = await apiClient.get<CheckpointsData>('/api/v1/checkpoints');
+    const res = await apiClient.get<CheckpointsData>(SYSTEM_CONFIG.apiEndpoints.checkpoints);
     return res.data;
   } catch (err) {
     console.warn('Backend unavailable, using static checkpoints fallback:', err);
@@ -25,7 +43,7 @@ export async function fetchCheckpoints(): Promise<CheckpointsData> {
 
 export async function fetchSeedShipments(): Promise<Shipment[]> {
   try {
-    const res = await apiClient.get<Shipment[]>('/api/v1/seed-demo');
+    const res = await apiClient.get<Shipment[]>(SYSTEM_CONFIG.apiEndpoints.seedDemo);
     return res.data;
   } catch (err) {
     console.warn('Backend unavailable, using mock seed shipments fallback:', err);
@@ -33,23 +51,37 @@ export async function fetchSeedShipments(): Promise<Shipment[]> {
   }
 }
 
-export async function generatePlan(payload: {
+export interface PlanPayload {
   shipment_ids?: string[];
-  custom_shipments?: any[];
+  custom_shipments?: Shipment[];
+  custom_checkpoints?: Record<string, CheckpointInput>;
+  custom_scenarios?: OptimizationScenarioInput[];
   simulated_temp_c?: number;
-}): Promise<PlanResponse> {
+}
+
+export async function generatePlan(payload: PlanPayload): Promise<PlanResponse> {
   try {
-    const res = await apiClient.post<PlanResponse>('/api/v1/plan', payload);
+    const res = await apiClient.post<PlanResponse>(SYSTEM_CONFIG.apiEndpoints.plan, payload);
     return res.data;
   } catch (err: any) {
-    console.warn('Backend plan generation error, evaluating local fallback:', err);
+    // If backend returned a structured HTTP response with validation or logic error, throw it so UI can display it
+    if (err.response && err.response.data) {
+      const serverDetail = err.response.data.detail || err.response.data.error || 'Server rejected plan request';
+      console.error('Backend plan generation error:', serverDetail, err.response.data);
+      throw new Error(typeof serverDetail === 'string' ? serverDetail : JSON.stringify(serverDetail));
+    }
+
+    // Only fallback if backend is completely offline / unreachable
+    console.warn('Backend network failure, evaluating offline demo fallback:', err);
     
     // Check if excursion is simulated on mock data
     const simTemp = payload.simulated_temp_c;
     if (simTemp !== undefined && simTemp > 8.0) {
       const excursionPlans = JSON.parse(JSON.stringify(MOCK_PLANS));
       excursionPlans.forEach((plan: any) => {
-        const v = plan.shipment_details.find((s: any) => s.shipment_id === 'SHP-003');
+        const v = plan.shipment_details.find((s: any) =>
+          s.shipment_id === 'SHP-003' || s.breakdown?.toLowerCase().includes('medical')
+        );
         if (v) {
           v.risk_score = 1.0;
           v.expected_loss = 2500000.0;

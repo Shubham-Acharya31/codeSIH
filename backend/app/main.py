@@ -114,6 +114,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "error": "RequestValidationError",
             "detail": detail_msg,
+            "validation_errors": [
+                {
+                    "loc": [str(x) for x in e.get("loc", [])],
+                    "msg": e.get("msg", ""),
+                    "type": e.get("type", "")
+                }
+                for e in errors
+            ],
             "correlation_id": correlation_id
         },
         headers={"X-Correlation-ID": correlation_id}

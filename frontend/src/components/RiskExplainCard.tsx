@@ -18,7 +18,11 @@ export const RiskExplainCard: React.FC<RiskExplainCardProps> = ({
   onToggleExcursion
 }) => {
   const isClassA = shipment?.shipment_class === 'A';
-  const isVaccines = shipment?.shipment_id === 'SHP-003';
+  const isMedicalColdChain =
+    isClassA &&
+    (shipment?.class_a?.product_subtype === 'medical' ||
+      detail.breakdown?.toLowerCase().includes('medical') ||
+      detail.route_description?.toLowerCase().includes('medical'));
   const isBreached = detail.risk_score >= 1.0 || detail.breakdown.includes('Hard Breach');
 
   return (
@@ -120,8 +124,8 @@ export const RiskExplainCard: React.FC<RiskExplainCardProps> = ({
         </div>
       </div>
 
-      {/* Interactive Excursion Simulation Toggle for Vaccines */}
-      {isVaccines && onToggleExcursion && (
+      {/* Interactive Excursion Simulation Toggle for Medical Cold-Chain Cargo */}
+      {isMedicalColdChain && onToggleExcursion && (
         <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between bg-blue-50/50 p-2.5 rounded-lg">
           <div className="flex items-center gap-2">
             <Thermometer className="w-4 h-4 text-blue-600" />

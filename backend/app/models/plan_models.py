@@ -14,7 +14,7 @@ class ShipmentPlanDetail(BaseModel):
     transfer_hubs: List[str] = Field(default_factory=list)
 
 class CandidatePlan(BaseModel):
-    label: Literal["Cheapest", "Fastest / Lowest-Risk", "Balanced"]
+    label: str = Field(..., description="Optimization scenario name or label")
     alpha: float
     beta: float
     freight_cost: float

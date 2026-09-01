@@ -14,13 +14,17 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   checkpointsData,
   totalConsignments
 }) => {
+  const hubsCount = checkpointsData.hubs?.length || 5;
+  const totalCitiesCount = Object.keys(checkpointsData.checkpoints || {}).length || 20;
+  const satellitesCount = checkpointsData.satellites?.length || Math.max(0, totalCitiesCount - hubsCount);
+
   const stats = [
-    { label: 'Active Consignments', val: `${totalConsignments}`, sub: 'Seed demo shipments' },
+    { label: 'Active Consignments', val: `${totalConsignments}`, sub: 'Active in batch' },
     { label: 'Cargo Classes', val: '2', sub: 'Class A & Class B' },
     { label: 'Transport Modes', val: '2', sub: 'Highway Road & Trunk Rail' },
     { label: 'Plan Candidates', val: '3', sub: 'Cheapest, Fastest, Balanced' },
-    { label: 'Multimodal Hubs', val: '5', sub: 'Indranagar, Himkot, etc.' },
-    { label: 'Total Network Cities', val: '20', sub: '5 Hubs + 15 Satellites' },
+    { label: 'Multimodal Hubs', val: `${hubsCount}`, sub: 'Central trunk network' },
+    { label: 'Total Network Cities', val: `${totalCitiesCount}`, sub: `${hubsCount} Hubs + ${satellitesCount} Satellites` },
   ];
 
   const steps = [

@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 from pydantic import Field
+from backend.app.config.transport_config import transport_config, TransportConfig
 
 class Settings(BaseSettings):
     app_env: str = Field(default="development")
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     osrm_timeout_seconds: float = Field(default=5.0)
     osrm_max_retries: int = Field(default=1)
     solver_time_limit_seconds: float = Field(default=2.0)
+    solver_workers: int = Field(default=4)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -22,3 +24,5 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+__all__ = ["settings", "Settings", "transport_config", "TransportConfig"]

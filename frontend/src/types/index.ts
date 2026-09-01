@@ -52,7 +52,7 @@ export interface ShipmentPlanDetail {
 }
 
 export interface CandidatePlan {
-  label: "Cheapest" | "Fastest / Lowest-Risk" | "Balanced";
+  label: string;
   alpha: number;
   beta: number;
   freight_cost: number;
@@ -84,4 +84,31 @@ export interface CheckpointsData {
   checkpoints: Record<string, Checkpoint>;
   hubs: string[];
   satellites: string[];
+}
+
+export interface OptimizationScenarioInput {
+  label: string;
+  alpha: number;
+  beta: number;
+}
+
+export interface CheckpointInput {
+  lat: number;
+  lon: number;
+  type: "hub" | "satellite";
+  nearest_hub?: string;
+  region?: string;
+}
+
+export interface ConfigResponse {
+  app_version: string;
+  app_env: string;
+  transport_config: Record<string, any>;
+  supported_classes: string[];
+  supported_subtypes: string[];
+  default_scenarios: Array<{
+    label: string;
+    alpha: number;
+    beta: number;
+  }>;
 }

@@ -63,18 +63,21 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     { from: "Suryapatan", to: "Chandanpalli" },
   ], []);
 
-  // Compute map bounds
+  // Compute map bounds dynamically from active shipment or all geocoded checkpoints
   const mapBounds = useMemo(() => {
     if (activeShipmentDetail && activeShipmentDetail.geometry && activeShipmentDetail.geometry.length > 0) {
       const coords = activeShipmentDetail.geometry.map(([lat, lon]) => [lat, lon] as [number, number]);
       return L.latLngBounds(coords);
     }
-    // Network-wide bounds covering all 20 cities (lat 12 to 30.5, lon 70 to 89)
+    const allCoords = Object.values(checkpoints).map((c) => [c.lat, c.lon] as [number, number]);
+    if (allCoords.length > 0) {
+      return L.latLngBounds(allCoords);
+    }
     return L.latLngBounds([
       [12.0, 70.0],
       [30.5, 89.0]
     ]);
-  }, [activeShipmentDetail]);
+  }, [activeShipmentDetail, checkpoints]);
 
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-slate-200 shadow-2xs" style={{ height }}>
@@ -161,7 +164,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-xs px-3 py-2 rounded-lg border border-slate-200 text-xs shadow-md z-[1000] flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-slate-900 text-[9px] text-blue-300 flex items-center justify-center font-bold">H</span>
-          <span className="text-slate-700 font-medium">Multimodal Hub (5 total)</span>
+          <span className="text-slate-700 font-medium">Multimodal Hub ({checkpointsData.hubs?.length || 5} total)</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-5 h-0.5 bg-blue-600"></span>

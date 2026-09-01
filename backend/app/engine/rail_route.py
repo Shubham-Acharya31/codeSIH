@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from backend.app.models.shipment import Shipment
-from backend.app.models.legs import RailLeg, RouteSegment
+from backend.app.models.legs import RailLeg
 from backend.app.engine.road_route import fetch_osrm_road_route, load_checkpoints
+from backend.app.config import transport_config
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 
@@ -28,22 +29,26 @@ def find_trunk_schedule(origin_hub: str, dest_hub: str) -> Optional[Dict[str, An
             return corridor
     return None
 
-def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
+def compute_rail_leg(
+    shipment: Shipment,
+    extra_checkpoints: Optional[Dict[str, Any]] = None
+) -> Optional[RailLeg]:
     """
-    Constructs a single aggregated multimodal RailLeg candidate across the 20-city network.
+    Constructs a single aggregated multimodal RailLeg candidate across the network
+    using centralized transport configuration.
     Returns None if:
       - Origin and destination share the same nearest hub (no rail advantage).
       - No direct trunk rail edge connects the origin hub and destination hub.
     """
-    checkpoints = load_checkpoints()
+    checkpoints = load_checkpoints(extra_checkpoints)
     if shipment.origin not in checkpoints or shipment.destination not in checkpoints:
         return None
 
     orig_info = checkpoints[shipment.origin]
     dest_info = checkpoints[shipment.destination]
     
-    orig_hub = orig_info["nearest_hub"] if orig_info["type"] == "satellite" else shipment.origin
-    dest_hub = dest_info["nearest_hub"] if dest_info["type"] == "satellite" else shipment.destination
+    orig_hub = orig_info["nearest_hub"] if orig_info.get("type") == "satellite" else shipment.origin
+    dest_hub = dest_info["nearest_hub"] if dest_info.get("type") == "satellite" else shipment.destination
 
     # 1. If same hub region, return None (road-only)
     if orig_hub == dest_hub:
@@ -54,6 +59,7 @@ def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
     if trunk is None:
         return None
 
+    rail_cfg = transport_config.rail
     dwell_matrix = load_dwell_matrix()
     transfer_buffer_hr = (
         dwell_matrix["transfer_buffers"]["cold_chain_cargo_hr"]
@@ -70,15 +76,22 @@ def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
     total_dwell_hr = 0.0
     total_feeder_cost = 0.0
 
+    feeder_rate = (
+        rail_cfg.feeder_rate_per_km_class_a
+        if shipment.shipment_class == "A"
+        else rail_cfg.feeder_rate_per_km_class_b
+    )
+
     # Feeder Leg 1: Origin -> Origin Hub (if origin is satellite)
     if shipment.origin != orig_hub:
-        dist1, time1, geom1 = fetch_osrm_road_route(shipment.origin, orig_hub, allow_fallback=True)
+        dist1, time1, geom1 = fetch_osrm_road_route(
+            shipment.origin, orig_hub, allow_fallback=True, extra_checkpoints=extra_checkpoints
+        )
         total_distance_km += dist1
         total_transit_hr += time1
         total_dwell_hr += transfer_buffer_hr
         transfer_hubs.append(orig_hub)
         combined_geometry.extend(geom1)
-        feeder_rate = 22.0 if shipment.shipment_class == "A" else 18.0
         total_feeder_cost += dist1 * feeder_rate
         segments.append({
             "mode": "road",
@@ -92,7 +105,7 @@ def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
     # Trunk Rail Leg: Origin Hub -> Destination Hub
     rail_dist = trunk["distance_km"]
     rail_time = trunk["transit_time_hr"]
-    rail_dwell = trunk.get("scheduled_dwell_hr", 1.0)
+    rail_dwell = trunk.get("scheduled_dwell_hr", rail_cfg.default_scheduled_dwell_hr)
     total_distance_km += rail_dist
     total_transit_hr += rail_time
     total_dwell_hr += rail_dwell
@@ -122,7 +135,9 @@ def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
 
     # Feeder Leg 2: Destination Hub -> Destination (if destination is satellite)
     if shipment.destination != dest_hub:
-        dist2, time2, geom2 = fetch_osrm_road_route(dest_hub, shipment.destination, allow_fallback=True)
+        dist2, time2, geom2 = fetch_osrm_road_route(
+            dest_hub, shipment.destination, allow_fallback=True, extra_checkpoints=extra_checkpoints
+        )
         total_distance_km += dist2
         total_transit_hr += time2
         total_dwell_hr += transfer_buffer_hr
@@ -131,7 +146,6 @@ def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
             combined_geometry.extend(geom2[1:])
         else:
             combined_geometry.extend(geom2)
-        feeder_rate = 22.0 if shipment.shipment_class == "A" else 18.0
         total_feeder_cost += dist2 * feeder_rate
         segments.append({
             "mode": "road",
@@ -142,18 +156,28 @@ def compute_rail_leg(shipment: Shipment) -> Optional[RailLeg]:
             "type": "feeder_outbound"
         })
 
-    # Bogey Calculation: Standard railway freight bogey (25,000 kg, 70 m3)
-    bogeys_by_weight = math.ceil(shipment.weight_kg / 25000.0)
-    bogeys_by_vol = math.ceil(shipment.volume_m3 / 70.0)
+    # Bogey Calculation from centralized config
+    bogeys_by_weight = math.ceil(shipment.weight_kg / rail_cfg.bogey_capacity_kg)
+    bogeys_by_vol = math.ceil(shipment.volume_m3 / rail_cfg.bogey_capacity_m3)
     num_bogeys = max(bogeys_by_weight, bogeys_by_vol, 1)
 
-    # Rail trunk cost: ₹12 - ₹15 / km per bogey for high-efficiency rail bulk
-    base_rail_rate = 15.0 if shipment.shipment_class == "A" else 11.0
+    # Rail trunk cost from centralized config
+    base_rail_rate = (
+        rail_cfg.base_rate_per_km_class_a
+        if shipment.shipment_class == "A"
+        else rail_cfg.base_rate_per_km_class_b
+    )
     cost_per_bogey = round(rail_dist * base_rail_rate, 2)
     total_rail_cost = round((cost_per_bogey * num_bogeys) + total_feeder_cost, 2)
 
-    # Delay probability on rail: schedule delay probability
-    delay_prob = round(min(0.20, trunk.get("delay_probability", 0.08)), 3)
+    # Delay probability on rail from centralized config
+    delay_prob = round(
+        min(
+            rail_cfg.max_delay_probability,
+            trunk.get("delay_probability", rail_cfg.default_delay_probability)
+        ),
+        3
+    )
 
     return RailLeg(
         mode="rail",

@@ -6,20 +6,16 @@ from backend.app.models.plan_models import CandidatePlan, ShipmentPlanDetail
 from backend.app.engine.risk import calculate_risk
 from backend.app.engine.grouping_scheduler import compute_consolidation_groupings
 from backend.app.core.exceptions import OptimizationInfeasibleError
-
-SCENARIOS = [
-    {"label": "Cheapest", "alpha": 0.90, "beta": 0.10},
-    {"label": "Fastest / Lowest-Risk", "alpha": 0.20, "beta": 0.80},
-    {"label": "Balanced", "alpha": 0.55, "beta": 0.45},
-]
+from backend.app.config import settings, transport_config
 
 def solve_multimodal_plans(
     candidates: List[Dict[str, Any]],
-    simulated_temp_c: Optional[float] = None
+    simulated_temp_c: Optional[float] = None,
+    custom_scenarios: Optional[List[Any]] = None
 ) -> List[CandidatePlan]:
     """
-    Solves 3 Pareto-optimal candidate plans (Cheapest, Fastest/Lowest-Risk, Balanced)
-    using OR-Tools CP-SAT with weighted objective minimization.
+    Solves Pareto-optimal candidate plans (Cheapest, Fastest/Lowest-Risk, Balanced, or custom)
+    using OR-Tools CP-SAT with weighted objective minimization and centralized config.
     """
     if not candidates:
         return []
@@ -55,7 +51,21 @@ def solve_multimodal_plans(
 
     plans: List[CandidatePlan] = []
 
-    for scenario in SCENARIOS:
+    # Determine scenarios to evaluate: dynamic overrides or centralized configuration defaults
+    scenarios_to_run = []
+    if custom_scenarios:
+        for sc in custom_scenarios:
+            if isinstance(sc, dict):
+                scenarios_to_run.append({"label": sc["label"], "alpha": float(sc["alpha"]), "beta": float(sc["beta"])})
+            else:
+                scenarios_to_run.append({"label": sc.label, "alpha": float(sc.alpha), "beta": float(sc.beta)})
+    else:
+        scenarios_to_run = [
+            {"label": sc.label, "alpha": sc.alpha, "beta": sc.beta}
+            for sc in transport_config.optimization.default_scenarios
+        ]
+
+    for scenario in scenarios_to_run:
         label = scenario["label"]
         alpha = scenario["alpha"]
         beta = scenario["beta"]
@@ -93,8 +103,8 @@ def solve_multimodal_plans(
         model.Minimize(sum(obj_terms))
 
         solver = cp_model.CpSolver()
-        solver.parameters.max_time_in_seconds = 2.0
-        solver.parameters.num_workers = 4
+        solver.parameters.max_time_in_seconds = float(settings.solver_time_limit_seconds)
+        solver.parameters.num_workers = int(settings.solver_workers)
 
         t_solve_start = time.perf_counter()
         status = solver.Solve(model)
