@@ -14,6 +14,7 @@ export interface SystemConfig {
     config: string;
     checkpoints: string;
     seedDemo: string;
+    shipments: string;
     plan: string;
   };
   cargoClasses: Array<{
@@ -58,6 +59,7 @@ export const SYSTEM_CONFIG: SystemConfig = {
     config: "/api/v1/config",
     checkpoints: "/api/v1/checkpoints",
     seedDemo: "/api/v1/seed-demo",
+    shipments: "/api/v1/shipments",
     plan: "/api/v1/plan",
   },
   cargoClasses: [

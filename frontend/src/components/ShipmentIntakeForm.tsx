@@ -7,36 +7,55 @@ import { ShipmentIntakeSchema } from '../validation/shipmentSchema';
 interface ShipmentIntakeFormProps {
   checkpointsData: CheckpointsData;
   onAddShipment: (shipment: Shipment) => void;
+  onUpdateShipment?: (shipment: Shipment) => void;
+  initialShipment?: Shipment | null;
   onClose: () => void;
 }
 
 export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
   checkpointsData,
   onAddShipment,
+  onUpdateShipment,
+  initialShipment,
   onClose
 }) => {
+  const isEditMode = Boolean(initialShipment);
   const cities = Object.keys(checkpointsData.checkpoints || {});
   const defaultOrigin = cities[0] || SYSTEM_CONFIG.networkDefaults.defaultOrigin;
   const defaultDest = cities[1] || SYSTEM_CONFIG.networkDefaults.defaultDestination;
 
-  const [productCategory, setProductCategory] = useState('');
-  const [shipmentClass, setShipmentClass] = useState<'A' | 'B'>('A');
-  const [origin, setOrigin] = useState(defaultOrigin);
-  const [destination, setDestination] = useState(defaultDest);
-  const [weightKg, setWeightKg] = useState<number>(3000);
-  const [volumeM3, setVolumeM3] = useState<number>(10);
-  const [cargoValue, setCargoValue] = useState<number>(500000);
+  const [productCategory, setProductCategory] = useState(initialShipment?.product_category || '');
+  const [shipmentClass, setShipmentClass] = useState<'A' | 'B'>(initialShipment?.shipment_class || 'A');
+  const [origin, setOrigin] = useState(initialShipment?.origin || defaultOrigin);
+  const [destination, setDestination] = useState(initialShipment?.destination || defaultDest);
+  const [weightKg, setWeightKg] = useState<number>(initialShipment?.weight_kg || 3000);
+  const [volumeM3, setVolumeM3] = useState<number>(initialShipment?.volume_m3 || 10);
+  const [cargoValue, setCargoValue] = useState<number>(initialShipment?.cargo_value || 500000);
   
   // Class A specific
-  const [subtype, setSubtype] = useState<'medical' | 'organic'>('organic');
-  const [tempMin, setTempMin] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.tempMin);
-  const [tempMax, setTempMax] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.tempMax);
-  const [q10, setQ10] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.q10);
-  const [shelfLifeHr, setShelfLifeHr] = useState<number>(SYSTEM_CONFIG.productSubtypes.organic.baseShelfLifeHr);
+  const [subtype, setSubtype] = useState<'medical' | 'organic'>(
+    initialShipment?.class_a?.product_subtype || 'organic'
+  );
+  const [tempMin, setTempMin] = useState<number>(
+    initialShipment?.class_a?.temperature_min ?? SYSTEM_CONFIG.productSubtypes.organic.tempMin
+  );
+  const [tempMax, setTempMax] = useState<number>(
+    initialShipment?.class_a?.temperature_max ?? SYSTEM_CONFIG.productSubtypes.organic.tempMax
+  );
+  const [q10, setQ10] = useState<number>(
+    initialShipment?.class_a?.q10 ?? SYSTEM_CONFIG.productSubtypes.organic.q10
+  );
+  const [shelfLifeHr, setShelfLifeHr] = useState<number>(
+    initialShipment?.class_a?.base_shelf_life_hr ?? SYSTEM_CONFIG.productSubtypes.organic.baseShelfLifeHr
+  );
 
   // Class B specific
-  const [penaltyRate, setPenaltyRate] = useState<number>(SYSTEM_CONFIG.classBDefaults.defaultPenaltyRate);
-  const [slaStrict, setSlaStrict] = useState<boolean>(SYSTEM_CONFIG.classBDefaults.defaultSlaStrict);
+  const [penaltyRate, setPenaltyRate] = useState<number>(
+    initialShipment?.class_b?.delay_penalty_rate ?? SYSTEM_CONFIG.classBDefaults.defaultPenaltyRate
+  );
+  const [slaStrict, setSlaStrict] = useState<boolean>(
+    initialShipment?.class_b?.sla_strict ?? SYSTEM_CONFIG.classBDefaults.defaultSlaStrict
+  );
 
   // Validation errors state
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -94,15 +113,15 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
 
     const valid = validationResult.data;
     const uniqueSuffix = Date.now().toString().slice(-4) + Math.floor(Math.random() * 90 + 10);
-    const newId = `SHP-CUST-${uniqueSuffix}`;
+    const targetId = isEditMode && initialShipment ? initialShipment.shipment_id : `SHP-CUST-${uniqueSuffix}`;
 
     const newShipment: Shipment = {
-      shipment_id: newId,
+      shipment_id: targetId,
       origin: valid.origin,
       destination: valid.destination,
       weight_kg: valid.weight_kg,
       volume_m3: valid.volume_m3,
-      deadline: new Date(Date.now() + 86400000 * 3).toISOString(),
+      deadline: isEditMode && initialShipment ? initialShipment.deadline : new Date(Date.now() + 86400000 * 3).toISOString(),
       cargo_value: valid.cargo_value,
       product_category: valid.product_category,
       shipment_class: valid.shipment_class,
@@ -118,9 +137,14 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
         delay_penalty_rate: valid.class_b.delay_penalty_rate,
         sla_strict: valid.class_b.sla_strict,
       } : null,
+      status: isEditMode && initialShipment ? initialShipment.status : 'PENDING',
     };
 
-    onAddShipment(newShipment);
+    if (isEditMode && onUpdateShipment) {
+      onUpdateShipment(newShipment);
+    } else {
+      onAddShipment(newShipment);
+    }
     onClose();
   };
 
@@ -130,12 +154,15 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
           <div className="flex items-center gap-2">
             <PlusCircle className="w-5 h-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-slate-900">Add New Consignment</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              {isEditMode ? `Edit Consignment (${initialShipment?.shipment_id})` : 'Add New Consignment'}
+            </h2>
           </div>
           <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
             <X className="w-5 h-5" />
           </button>
         </div>
+
 
         {generalError && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-red-700">
@@ -418,8 +445,9 @@ export const ShipmentIntakeForm: React.FC<ShipmentIntakeFormProps> = ({
               type="submit"
               className="px-5 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-xs cursor-pointer"
             >
-              Validate &amp; Add Consignment
+              {isEditMode ? 'Save Consignment Changes' : 'Validate & Add Consignment'}
             </button>
+
           </div>
         </form>
       </div>

@@ -24,9 +24,34 @@ export interface ShipmentBase {
   shipment_class: "A" | "B";
 }
 
+export type ShipmentStatus = "PENDING" | "CONSOLIDATED" | "DISPATCHED" | "IN_TRANSIT" | "DELIVERED" | "DELAYED" | "EXCURSION";
+
 export interface Shipment extends ShipmentBase {
   class_a?: ClassAAttributes | null;
   class_b?: ClassBAttributes | null;
+  status?: ShipmentStatus;
+  created_at?: string;
+  updated_at?: string;
+  dispatched_at?: string;
+  assigned_plan_scenario?: string;
+  assigned_plan_id?: string;
+  route_summary?: string;
+}
+
+export interface TimelineEvent {
+  id?: number;
+  shipment_id: string;
+  event_seq: number;
+  event_type: string;
+  title: string;
+  description: string;
+  location: string;
+  timestamp: string;
+  status: "COMPLETED" | "ACTIVE" | "SCHEDULED" | "ALERT";
+  temperature_c?: number | null;
+  dwell_time_hr?: number | null;
+  carrier_details?: string | null;
+  eta?: string | null;
 }
 
 export interface RiskScore {
@@ -112,3 +137,32 @@ export interface ConfigResponse {
     beta: number;
   }>;
 }
+
+export interface DispatchPlanPayload {
+  scenario_label: string;
+  shipment_ids: string[];
+  plan_details?: any[];
+}
+
+export interface DispatchPlanResponse {
+  success: boolean;
+  scenario_label: string;
+  dispatched_count: number;
+  timestamp: string;
+}
+
+export interface TimelineAdvanceResponse {
+  success: boolean;
+  shipment_id: string;
+  status: ShipmentStatus;
+  timeline: TimelineEvent[];
+}
+
+export interface SimulateSpikeResponse {
+  success: boolean;
+  shipment_id: string;
+  spike_temp_c: number;
+  status: ShipmentStatus;
+  timeline: TimelineEvent[];
+}
+

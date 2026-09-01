@@ -9,13 +9,17 @@ interface PlanComparisonTabProps {
   activePlanIndex: number;
   onSelectPlan: (index: number) => void;
   onInspectRoute: (index: number) => void;
+  onDispatchPlan?: (plan: CandidatePlan) => void;
+  isDispatching?: boolean;
 }
 
 export const PlanComparisonTab: React.FC<PlanComparisonTabProps> = ({
   plans,
   activePlanIndex,
   onSelectPlan,
-  onInspectRoute
+  onInspectRoute,
+  onDispatchPlan,
+  isDispatching = false
 }) => {
   // Prepare data for Recharts Trade-off visualizer
   const chartData = plans.map((p) => ({
@@ -133,26 +137,38 @@ export const PlanComparisonTab: React.FC<PlanComparisonTabProps> = ({
 
               {/* Action Buttons */}
               <div className="pt-4 border-t border-slate-100 space-y-2">
+                {onDispatchPlan && (
+                  <button
+                    onClick={() => onDispatchPlan(plan)}
+                    disabled={isDispatching}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 text-emerald-200" />
+                    <span>{isDispatching ? 'Dispatching to Network...' : `Dispatch Plan (${plan.shipment_details.length} Consignments)`}</span>
+                  </button>
+                )}
+
                 <button
                   onClick={() => onSelectPlan(idx)}
-                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-default'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
                   }`}
                 >
-                  {isActive ? 'Selected as Target Plan' : 'Select This Scenario'}
+                  {isActive ? 'Target Plan Selected' : 'Select This Scenario'}
                 </button>
 
                 <button
                   onClick={() => onInspectRoute(idx)}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
                 >
                   <Compass className="w-4 h-4" />
                   <span>Inspect Route &amp; Physics Breakdown</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
+
             </div>
           );
         })}

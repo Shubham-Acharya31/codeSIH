@@ -6,7 +6,12 @@ import {
   CheckpointsData,
   ConfigResponse,
   CheckpointInput,
-  OptimizationScenarioInput
+  OptimizationScenarioInput,
+  TimelineEvent,
+  DispatchPlanPayload,
+  DispatchPlanResponse,
+  TimelineAdvanceResponse,
+  SimulateSpikeResponse
 } from '../types';
 import { MOCK_SHIPMENTS, MOCK_PLANS, MOCK_CHECKPOINTS } from '../mocks/fixtures';
 import { SYSTEM_CONFIG } from '../config/constants';
@@ -51,6 +56,92 @@ export async function fetchSeedShipments(): Promise<Shipment[]> {
   }
 }
 
+// -------------------------------------------------------------
+// Persistent Consignment Storage & CRUD
+// -------------------------------------------------------------
+
+export async function fetchStoredShipments(): Promise<Shipment[]> {
+  try {
+    const res = await apiClient.get<Shipment[]>(SYSTEM_CONFIG.apiEndpoints.shipments);
+    if (res.data && res.data.length > 0) {
+      return res.data;
+    }
+    return await fetchSeedShipments();
+  } catch (err) {
+    console.warn('Failed fetching stored shipments from SQLite, using fallback:', err);
+    return await fetchSeedShipments();
+  }
+}
+
+export async function createShipment(shipment: Shipment): Promise<Shipment> {
+  const res = await apiClient.post<Shipment>(SYSTEM_CONFIG.apiEndpoints.shipments, shipment);
+  return res.data;
+}
+
+export async function updateShipment(shipmentId: string, shipment: Shipment): Promise<Shipment> {
+  const res = await apiClient.put<Shipment>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/${shipmentId}`, shipment);
+  return res.data;
+}
+
+export async function deleteShipment(shipmentId: string): Promise<boolean> {
+  const res = await apiClient.delete(`${SYSTEM_CONFIG.apiEndpoints.shipments}/${shipmentId}`);
+  return res.data?.success ?? true;
+}
+
+export async function resetShipmentsToSeed(): Promise<Shipment[]> {
+  const res = await apiClient.post<Shipment[]>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/reset`);
+  return res.data;
+}
+
+// -------------------------------------------------------------
+// Tracking Timeline & Dispatch Management
+// -------------------------------------------------------------
+
+export async function fetchTimeline(shipmentId: string): Promise<TimelineEvent[]> {
+  try {
+    const res = await apiClient.get<TimelineEvent[]>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/${shipmentId}/timeline`);
+    return res.data;
+  } catch (err) {
+    console.warn(`Failed fetching live timeline for ${shipmentId}:`, err);
+    return [
+      {
+        shipment_id: shipmentId,
+        event_seq: 0,
+        event_type: 'BOOKED',
+        title: 'Consignment Booked & Intake Verified',
+        description: 'Verified at origin station facility.',
+        location: 'Origin Terminal',
+        timestamp: new Date().toISOString(),
+        status: 'COMPLETED'
+      }
+    ];
+  }
+}
+
+export async function dispatchShipment(shipmentId: string): Promise<TimelineEvent[]> {
+  const res = await apiClient.post<TimelineEvent[]>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/${shipmentId}/dispatch`);
+  return res.data;
+}
+
+export async function dispatchPlan(payload: DispatchPlanPayload): Promise<DispatchPlanResponse> {
+  const res = await apiClient.post<DispatchPlanResponse>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/dispatch-plan`, payload);
+  return res.data;
+}
+
+export async function advanceTimeline(shipmentId: string): Promise<TimelineAdvanceResponse> {
+  const res = await apiClient.post<TimelineAdvanceResponse>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/${shipmentId}/timeline/advance`);
+  return res.data;
+}
+
+export async function simulateSpike(shipmentId: string, tempC: number): Promise<SimulateSpikeResponse> {
+  const res = await apiClient.post<SimulateSpikeResponse>(`${SYSTEM_CONFIG.apiEndpoints.shipments}/${shipmentId}/timeline/simulate-spike`, { temp_c: tempC });
+  return res.data;
+}
+
+// -------------------------------------------------------------
+// Planning Optimization
+// -------------------------------------------------------------
+
 export interface PlanPayload {
   shipment_ids?: string[];
   custom_shipments?: Shipment[];
@@ -64,17 +155,14 @@ export async function generatePlan(payload: PlanPayload): Promise<PlanResponse> 
     const res = await apiClient.post<PlanResponse>(SYSTEM_CONFIG.apiEndpoints.plan, payload);
     return res.data;
   } catch (err: any) {
-    // If backend returned a structured HTTP response with validation or logic error, throw it so UI can display it
     if (err.response && err.response.data) {
       const serverDetail = err.response.data.detail || err.response.data.error || 'Server rejected plan request';
       console.error('Backend plan generation error:', serverDetail, err.response.data);
       throw new Error(typeof serverDetail === 'string' ? serverDetail : JSON.stringify(serverDetail));
     }
 
-    // Only fallback if backend is completely offline / unreachable
     console.warn('Backend network failure, evaluating offline demo fallback:', err);
     
-    // Check if excursion is simulated on mock data
     const simTemp = payload.simulated_temp_c;
     if (simTemp !== undefined && simTemp > 8.0) {
       const excursionPlans = JSON.parse(JSON.stringify(MOCK_PLANS));
@@ -106,3 +194,4 @@ export async function generatePlan(payload: PlanPayload): Promise<PlanResponse> 
     };
   }
 }
+

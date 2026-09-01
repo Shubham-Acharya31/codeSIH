@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Literal
+from datetime import datetime
 from backend.app.models.plan_models import CandidatePlan
-from backend.app.models.shipment import Shipment
+from backend.app.models.shipment import Shipment, ClassAAttributes, ClassBAttributes
 
 class CheckpointInput(BaseModel):
     """Dynamic location geocoded input."""
@@ -62,3 +63,70 @@ class HealthResponse(BaseModel):
     status: str = "ok"
     version: str = "2.0.0"
     app_env: str = "development"
+
+# -------------------------------------------------------------
+# Consignment Lifecycle & Live Tracking Timeline Schemas
+# -------------------------------------------------------------
+
+class TimelineEvent(BaseModel):
+    id: Optional[int] = None
+    shipment_id: str
+    event_seq: int
+    event_type: str
+    title: str
+    description: str
+    location: str
+    timestamp: str
+    status: Literal["COMPLETED", "ACTIVE", "SCHEDULED", "ALERT"]
+    temperature_c: Optional[float] = None
+    dwell_time_hr: Optional[float] = None
+    carrier_details: Optional[str] = None
+    eta: Optional[str] = None
+
+class ShipmentRecord(BaseModel):
+    shipment_id: str
+    origin: str
+    destination: str
+    weight_kg: float
+    volume_m3: float
+    deadline: datetime
+    cargo_value: float
+    product_category: str
+    shipment_class: Literal["A", "B"]
+    class_a: Optional[ClassAAttributes] = None
+    class_b: Optional[ClassBAttributes] = None
+    status: str = "PENDING"
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    dispatched_at: Optional[str] = None
+    assigned_plan_scenario: Optional[str] = None
+    assigned_plan_id: Optional[str] = None
+    route_summary: Optional[str] = None
+
+class DispatchPlanRequest(BaseModel):
+    scenario_label: str = Field(..., min_length=1, description="Chosen candidate plan label (e.g. Balanced)")
+    shipment_ids: List[str] = Field(..., min_length=1, description="List of shipment IDs to dispatch together")
+    plan_details: Optional[List[Dict[str, Any]]] = Field(default=None, description="Detailed routing per shipment")
+
+class DispatchPlanResponse(BaseModel):
+    success: bool
+    scenario_label: str
+    dispatched_count: int
+    timestamp: str
+
+class TimelineAdvanceResponse(BaseModel):
+    success: bool
+    shipment_id: str
+    status: str
+    timeline: List[TimelineEvent]
+
+class SimulateSpikeRequest(BaseModel):
+    temp_c: float = Field(..., description="Simulated sensor spike temperature in °C")
+
+class SimulateSpikeResponse(BaseModel):
+    success: bool
+    shipment_id: str
+    spike_temp_c: float
+    status: str
+    timeline: List[TimelineEvent]
+
